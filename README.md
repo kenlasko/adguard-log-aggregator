@@ -24,6 +24,10 @@ every request. All configuration is via environment variables and secrets.
   value only, so `192.168.1.2` never matches `192.168.1.20`. Add `*` anywhere to
   widen the match: `192.168.1.2*` (prefix), `*.example.com` (suffix), or
   `*ads*` (substring).
+- **Domain search matches subdomains.** A plain domain term also matches every
+  query under it, so `example.com` finds `example.com`, `ads.example.com`, and
+  `www.example.com`, but never an unrelated `notexample.com`. Use a `*` wildcard
+  when you need a stricter or substring match instead.
 - **Click any client or domain** in a log row to instantly filter by that exact
   value.
 - **Block / unblock any domain** straight from a log row. Pick which instance to

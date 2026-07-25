@@ -56,6 +56,39 @@ func TestMatchGlob(t *testing.T) {
 	}
 }
 
+func TestMatchDomain(t *testing.T) {
+	cases := []struct {
+		name    string
+		pattern string
+		domain  string
+		want    bool
+	}{
+		// Wildcard-free: the domain itself and any subdomain match.
+		{"exact", "example.com", "example.com", true},
+		{"subdomain", "example.com", "ads.example.com", true},
+		{"deep subdomain", "example.com", "a.b.example.com", true},
+		{"rejects sibling", "example.com", "notexample.com", false},
+		{"rejects longer label", "example.com", "example.community", false},
+		{"rejects partial label", "xample.com", "ads.example.com", false},
+		{"rejects parent", "ads.example.com", "example.com", false},
+		{"case insensitive", "Example.COM", "ADS.example.com", true},
+		{"trailing dot pattern", "example.com.", "ads.example.com", true},
+		{"trailing dot domain", "example.com", "ads.example.com.", true},
+
+		// A "*" switches back to anchored wildcard matching (no subdomain widening).
+		{"wildcard suffix", "*.example.com", "www.example.com", true},
+		{"wildcard exact only", "example.com", "example.com", true},
+		{"wildcard rejects subdomain", "www.*.com", "www.example.org", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := matchDomain(tc.pattern, tc.domain); got != tc.want {
+				t.Errorf("matchDomain(%q, %q) = %v, want %v", tc.pattern, tc.domain, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestAdguardSearchTerm(t *testing.T) {
 	cases := []struct {
 		pattern string
@@ -90,7 +123,8 @@ func TestMatchesSearchDomainOrClient(t *testing.T) {
 		{"192.168.1.2", true},      // exact client
 		{"192.168.1.20", false},    // client near-miss excluded
 		{"ads.example.com", true},  // exact domain
-		{"example.com", false},     // domain substring excluded without wildcard
+		{"example.com", true},      // parent domain matches its subdomains
+		{"xample.com", false},      // partial label is not a domain boundary
 		{"*.example.com", true},    // domain suffix wildcard
 		{"192.168.1.2*", true},     // client prefix wildcard
 		{"nomatch.invalid", false}, // neither

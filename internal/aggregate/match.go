@@ -7,10 +7,19 @@ import (
 )
 
 // Search matching is exact by default: a search of "192.168.1.2" matches only
-// the client or domain "192.168.1.2", never "192.168.1.20". A "*" in the search
-// is a wildcard matching any run of characters (including none), so
-// "192.168.1.2*" matches "192.168.1.2", "192.168.1.20", "192.168.1.21", and so
-// on. Matching is case-insensitive and anchored to the whole value.
+// the client "192.168.1.2", never "192.168.1.20". A "*" in the search is a
+// wildcard matching any run of characters (including none), so "192.168.1.2*"
+// matches "192.168.1.2", "192.168.1.20", "192.168.1.21", and so on. Matching is
+// case-insensitive and anchored to the whole value.
+//
+// The queried domain is the one exception: because domains are hierarchical, a
+// wildcard-free domain term also matches its subdomains. A search of
+// "example.com" matches "example.com", "ads.example.com", and
+// "www.example.com", but never "notexample.com" or "example.company". This lets
+// an operator find every query under a domain without knowing the exact
+// hostname, while still keeping the label boundary (so "example.com" never
+// matches an unrelated "example.community"). A "*" in a domain term switches
+// back to the anchored wildcard match above.
 //
 // A pattern is matched against three values on each entry: the queried domain,
 // the client address, and the client's friendly name (the name AdGuard shows in
@@ -34,7 +43,7 @@ func (f Filter) matchesSearch(item adguard.QueryLogItem) bool {
 	if f.Search == "" {
 		return true
 	}
-	if matchGlob(f.Search, item.Question.Name) || matchGlob(f.Search, item.Client) {
+	if matchDomain(f.Search, item.Question.Name) || matchGlob(f.Search, item.Client) {
 		return true
 	}
 	return item.ClientInfo != nil && matchGlob(f.Search, item.ClientInfo.Name)
@@ -90,6 +99,21 @@ func matchGlob(pattern, s string) bool {
 		s = s[idx+len(part):]
 	}
 	return true
+}
+
+// matchDomain reports whether a queried domain satisfies the search pattern. A
+// pattern containing "*" is matched with the same anchored wildcard rules as
+// matchGlob. A wildcard-free pattern matches the domain itself or any of its
+// subdomains, so "example.com" matches "example.com" and "ads.example.com" but
+// never "notexample.com" or "example.company". Matching is case-insensitive and
+// a trailing dot on either side (a fully-qualified name) is ignored.
+func matchDomain(pattern, domain string) bool {
+	if strings.Contains(pattern, "*") {
+		return matchGlob(pattern, domain)
+	}
+	pattern = strings.ToLower(strings.TrimSuffix(pattern, "."))
+	domain = strings.ToLower(strings.TrimSuffix(domain, "."))
+	return domain == pattern || strings.HasSuffix(domain, "."+pattern)
 }
 
 // adguardSearchTerm reduces a user pattern to the coarse substring passed to
