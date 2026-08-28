@@ -1,7 +1,7 @@
 # Build stage runs on the native BUILDPLATFORM and cross-compiles for the
 # requested TARGETOS/TARGETARCH, so multi-arch builds never pay the cost of
 # emulating the Go toolchain under QEMU.
-FROM --platform=$BUILDPLATFORM golang:1.26 AS build
+FROM --platform=$BUILDPLATFORM golang:1.27 AS build
 WORKDIR /src
 
 # Cache dependencies first for faster rebuilds.
